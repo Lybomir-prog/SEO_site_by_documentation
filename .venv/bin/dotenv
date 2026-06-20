@@ -1,6 +1,0 @@
-#!/home/lybomir/work/SEO_site_by_documentation/.venv/bin/python
-import sys
-from dotenv.__main__ import cli
-if __name__ == '__main__':
-    sys.argv[0] = sys.argv[0].removesuffix('.exe')
-    sys.exit(cli())
