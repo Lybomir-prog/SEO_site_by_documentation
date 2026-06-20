@@ -1,20 +1,23 @@
-import requests
+import asyncio
 import hashlib
-import os
+import httpx
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
+from pathlib import Path
 
 DOCS_URL = "https://kodos.ru/podderzhka/dokumentacziya/"
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 }  # говорим баузеру что это открывает человек, а не питон чтобы не блокировали доступ
-STORAGE_DIR = "storage/documents/kodos"  # куда скачиваем
+STORAGE_DIR = Path("storage/documents/kodos")  # куда скачиваем
+MAX_CONCURRENT_DOWNLOADS = 5
+REQUEST_TIMEOUT = httpx.Timeout(
+    30.0, connect=20.0
+)  # timeout-сколько секунд ждем, в случае если сервер не отвечает
 
 
-def fetch_page(url: str) -> BeautifulSoup:
-    r = requests.get(
-        url, headers=HEADERS, timeout=20
-    )  # timeout-сколько секунд ждем, в случае если сервер не отвечает
+async def fetch_page(client: httpx.AsyncClient, url: str) -> BeautifulSoup:
+    r = await client.get(url)
     r.raise_for_status()
     return BeautifulSoup(r.text, "lxml")
 
@@ -27,84 +30,128 @@ def parse_docs(soup: BeautifulSoup, base_url: str) -> list[dict]:
     results = []
     current_category = ""
     current_subcategory = ""
+
     for tag in soup.find_all(["h2", "h3", "a"]):
         if tag.name == "h2":
             current_category = tag.get_text(strip=True)
             current_subcategory = ""
+            continue
+
         elif tag.name == "h3":
             current_subcategory = tag.get_text(strip=True)
-        elif tag.name == "a":
-            href = tag.get("href", "").strip()
+            continue
 
-            if not href:
-                continue
+        href = tag.get("href", "").strip()
+        if not href:
+            continue
 
-            full_url = urljoin(base_url, href)
-            if full_url.lower().endswith(".pdf"):
-                title = tag.get_text(strip=True) or full_url.split("/")[-1]
-                results.append(
-                    {
-                        "category": current_category,
-                        "subcategory": current_subcategory,
-                        "title": title,
-                        "filename": full_url.split("/")[-1],
-                        "source_url": base_url,
-                        "file_url": full_url,
-                    }
-                )
+        full_url = urljoin(base_url, href)
+        if not full_url.lower().endswith(".pdf"):
+            continue
+        title = tag.get_text(strip=True) or full_url.rsplit("/", 1)[-1]
+        results.append(
+            {
+                "category": current_category,
+                "subcategory": current_subcategory,
+                "title": title,
+                "filename": full_url.rsplit("/", 1)[-1],
+                "source_url": full_url,
+                "file_url": full_url,
+            }
+        )
 
     return results
 
 
-def download_file(url: str, dest_dir: str) -> tuple[str, str]:
+def calc_md5_from_file(path: Path) -> str:
+    hasher = hashlib.md5()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
+async def download_file(
+    client: httpx.AsyncClient, url: str, dest_dir: Path, semaphore: asyncio.Semaphore
+) -> tuple[str, str]:
     """
     скачиваем файл, возвращаем: (local_path,file_hash)
     пропускаем файл если уже есть с таким именнем
     """
-    os.makedirs(dest_dir, exist_ok=True)
+    # файл уже скачан читаем хеш
+    async with semaphore:
 
-    filename = url.split("/")[-1]
-    local_path = os.path.join(dest_dir, filename)
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        filename = url.rsplit("/", 1)[-1]
+        local_path = dest_dir / filename
 
-    if os.path.exists(local_path):
-        # файл уже скачан читаем хеш
-        with open(local_path, "rb") as f:
-            file_hash = hashlib.md5(f.read()).hexdigest()
-        return local_path, file_hash
+        if local_path.exists():
+            file_hash = await asyncio.to_thread(calc_md5_from_file, local_path)
+            return str(local_path), file_hash
 
-    r = requests.get(url, headers=HEADERS, timeout=30, stream=True)
-    r.raise_for_status()
+        hasher = hashlib.md5()
 
-    hasher = hashlib.md5()
-    with open(local_path, "wb") as f:
-        for chunk in r.iter_content(chunk_size=8192):
-            if chunk:
-                f.write(chunk)
-                hasher.update(chunk)
-
-    return local_path, hasher.hexdigest()
+        async with client.stream("GET", url) as r:
+            r.raise_for_status()
+            with local_path.open("wb") as f:
+                async for chunk in r.aiter_bytes(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+                        hasher.update(chunk)
+        return str(local_path), hasher.hexdigest()
 
 
-def run(download: bool = False) -> list[dict]:
+async def enrich_docs_with_files(
+    client: httpx.AsyncClient, docs: list[dict], download: bool
+) -> list[dict]:
+
+    if not download:
+        for doc in docs:
+            doc["local_path"] = None
+            doc["file_hash"] = None
+        return docs
+
+    semaphore = asyncio.Semaphore(MAX_CONCURRENT_DOWNLOADS)
+    tasks = [
+        download_file(client, doc["file_url"], STORAGE_DIR, semaphore) for doc in docs
+    ]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    for doc, result in zip(docs, results):
+        if isinstance(result, Exception):
+            doc["local_path"] = None
+            doc["file_hash"] = None
+        else:
+            local_path, file_hash = result
+            doc["local_path"] = local_path
+            doc["file_hash"] = file_hash
+
+    return docs
+
+
+async def run(download: bool = False) -> list[dict]:
     """
     download=True скачиваем файлы в storage/
     download=False только парсим список документов
     """
     print("КОДОС парсим", DOCS_URL)
-    soup = fetch_page(DOCS_URL)
-    docs = parse_docs(soup, DOCS_URL)
-    print("Найдено документов", len(docs))
 
-    for doc in docs:
-        if download:
-            try:
-                local_path, file_hash = download_file(doc["file_url"], STORAGE_DIR)
-                doc["local_path"] = local_path
-                doc["file_hash"] = file_hash
-            except Exception:
-                doc["local_path"] = None
-                doc["file_hash"] = None
-        else:
-            doc["local_path"] = None
-            doc["file_hash"] = None
-    return docs
+    async with httpx.AsyncClient(
+        headers=HEADERS,
+        timeout=REQUEST_TIMEOUT,
+        follow_redirects=True,
+    ) as client:
+
+        soup = await fetch_page(client, DOCS_URL)
+        docs = parse_docs(soup, DOCS_URL)
+        print("Найдено документов", len(docs))
+
+        docs = await enrich_docs_with_files(client, docs, download=download)
+
+        return docs
+
+
+# делаем чтобы можно было просто проверить парсинг
+if __name__ == "__main__":
+    result = asyncio.run(run(download=False))
+    print("итого загрузилось файлов:", len(result))

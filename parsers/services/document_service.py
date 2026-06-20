@@ -304,6 +304,7 @@ async def save_documents(
             result = await upsert_document_with_version(db, item)
             stats[result["status"]] += 1
         except Exception:
+            await db.rollback()
             stats["errors"] += 1
 
     await db.commit()

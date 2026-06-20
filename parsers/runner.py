@@ -14,7 +14,7 @@ async def run_parser(parser_name: str, parser_func: Callable[[], list[dict]]) ->
     print("start parsing: ", parser_name)
 
     try:
-        items = parser_func()
+        items = await asyncio.to_thread(parser_func)
         if not items:
             print("no document found : ", parser_name)
             return {

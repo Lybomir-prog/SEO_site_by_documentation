@@ -6,4 +6,5 @@ pip install pydantic_settings
 pip install aiomysql
 pip install pydantic[email]
 pip install bcrypt
+pip install httpx
 pip install feedparser requests beautifulsoup4 lxml
