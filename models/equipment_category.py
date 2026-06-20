@@ -8,5 +8,5 @@ class EquipmentCategory(Base):
     id=Column(Integer,primary_key=True)
     name_category=Column(String(255),nullable=False)
     slug=Column(String(255),nullable=False)
-    icon=Column(String(255),nullable=False)
+    icon=Column(String(255),nullable=True)
     models=relationship("Models",back_populates="category")

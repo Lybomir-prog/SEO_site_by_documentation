@@ -1,0 +1,9 @@
+pip install fastapi uvicorn
+pip install sqlalchemy alembic
+pip install pymysql python-dotenv
+pip install jinja2
+pip install pydantic_settings
+pip install aiomysql
+pip install pydantic[email]
+pip install bcrypt
+pip install feedparser requests beautifulsoup4 lxml

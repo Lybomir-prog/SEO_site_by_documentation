@@ -11,7 +11,11 @@ class Users(Base):
     login=Column(String(100), unique=True, nullable=False)
     email=Column(String(100), unique=True, nullable=False)
     password_hash=Column(String(255),nullable=False)
+    role=Column(String(20),nullable=False,default="user")
+    
+
     last_login_at=Column(DateTime,nullable=False)
     created_at=Column(DateTime, server_default=func.now(), nullable=False)
+
     reviews=relationship("Reviews", back_populates="user")
     review_likes=relationship("ReviewsLikes",back_populates="user")

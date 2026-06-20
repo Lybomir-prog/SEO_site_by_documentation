@@ -8,9 +8,10 @@ class NewsSource(Base):
     id=Column(Integer,primary_key=True)
     name=Column(String(100),nullable=False)
     url=Column(String(255),nullable=False)
-    parser_type=Column(Enum("rss","html",name="parser_type_enum"),nullable=False)
-    selector=Column(String(500),nullable=False)
+    parser_type=Column(Enum("rss","html",name="parser_type_enum"),nullable=False)# тип парсера rss or html
+    selector=Column(String(500),nullable=False)# css-селектор для html
     is_active=Column(Boolean,default=False)
     last_parsed=Column(DateTime,nullable=False)
+
     news=relationship("News",back_populates='source')
     
