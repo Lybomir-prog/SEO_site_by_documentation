@@ -1,20 +1,26 @@
-import asyncio
-from collections.abc import Callable
-from database import AsyncSessionLocal
-from services.document_service import save_documents
-from sites.kodos import run as run_kodos
+# python -m parsers.runner
 
-PARSERS: list[tuple[str, Callable[[], list[dict]]]] = [
+
+import asyncio
+from collections.abc import Callable, Awaitable
+from database import AsyncSessionLocal, engine
+import models
+from parsers.services.document_service import save_documents
+from parsers.sites.kodos import run as run_kodos
+
+PARSERS: list[tuple[str, Callable[[], Awaitable[list[dict]]]]] = [
     ("kodos", run_kodos),
 ]  # сюда добавляю остальные парсеры для других сайтов
 
 
-async def run_parser(parser_name: str, parser_func: Callable[[], list[dict]]) -> dict:
+async def run_parser(
+    parser_name: str, parser_func: Callable[[], Awaitable[list[dict]]]
+) -> dict:
 
     print("start parsing: ", parser_name)
 
     try:
-        items = await asyncio.to_thread(parser_func)
+        items = await parser_func(download=True)
         if not items:
             print("no document found : ", parser_name)
             return {
@@ -38,7 +44,7 @@ async def run_parser(parser_name: str, parser_func: Callable[[], list[dict]]) ->
             **stats,
         }
     except Exception as e:
-        print(parser_name, "errors--", e)
+        print(parser_name, "errors--", repr(e))
 
         return {
             "parser": parser_name,
@@ -61,6 +67,8 @@ async def main() -> None:
 
     for result in results:
         print(result)
+
+    await engine.dispose()
 
 
 if __name__ == "__main__":

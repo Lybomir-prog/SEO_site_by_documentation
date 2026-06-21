@@ -48,15 +48,25 @@ def parse_docs(soup: BeautifulSoup, base_url: str) -> list[dict]:
         full_url = urljoin(base_url, href)
         if not full_url.lower().endswith(".pdf"):
             continue
+
         title = tag.get_text(strip=True) or full_url.rsplit("/", 1)[-1]
         results.append(
             {
-                "category": current_category,
-                "subcategory": current_subcategory,
+                "brand": "КОДОС",
+                "brand_website_url": "https://kodos.ru/",
+                "brand_logo_url": "",
+                "category_name": current_category,
+                "category_icon": "",
+                "model_name": current_subcategory,
+                "model_description": "",
+                "model_spec": "{}",
+                "model_image_url": "",
                 "title": title,
-                "filename": full_url.rsplit("/", 1)[-1],
                 "source_url": full_url,
                 "file_url": full_url,
+                "file_hash": "",
+                "doc_type": "pdf",
+                "parser_source": "kodos",
             }
         )
 
@@ -146,7 +156,7 @@ async def run(download: bool = False) -> list[dict]:
         docs = parse_docs(soup, DOCS_URL)
         print("Найдено документов", len(docs))
 
-        docs = await enrich_docs_with_files(client, docs, download=download)
+        docs = await enrich_docs_with_files(client, docs, download=True)
 
         return docs
 
