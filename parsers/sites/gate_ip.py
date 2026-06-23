@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from pathlib import Path
 
-DOCS_URL = "https://sigur.com/docs/"
+DOCS_URL = "https://skd-gate.ru/materiali/tehnicheskaya_gate/dokumentaciya/"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 STORAGE_DIR = Path("storage/documents/sigur")
 MAX_CONCURRENT_DOWNLOADS = 5
@@ -13,8 +13,8 @@ REQUEST_TIMEOUT = httpx.Timeout(30.0, connect=20.0)
 
 
 ALLOWED_SECTIONS = {
-    "Документация на контроллеры",
-    "Документация на считыватели",
+    "1. Руководства на ПО",
+    "2.  Инструкции",
     "Документация на программное обеспечение",
     "Документация на прочее оборудование",
     "Руководства по настройке интеграций",

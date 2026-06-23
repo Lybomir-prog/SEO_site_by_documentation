@@ -51,6 +51,10 @@ def find_selection_table(heading) -> BeautifulSoup | None:
             return None
         if current.name == "table":
             return current
+        if current.name == "div":
+            table = current.find("table")
+            if table:
+                return table
         current = current.find_next_sibling()
     return current
 

@@ -7,9 +7,15 @@ from database import AsyncSessionLocal, engine
 import models
 from parsers.services.document_service import save_documents
 from parsers.sites.kodos import run as run_kodos
+from parsers.sites.gate_ip import run as run_gate
+from parsers.sites.sigur import run as run_sigur
+from parsers.sites.perco import run as run_perco
 
 PARSERS: list[tuple[str, Callable[[], Awaitable[list[dict]]]]] = [
     ("kodos", run_kodos),
+    ("sigur", run_sigur),
+    ("gate", run_gate),
+    ("perco", run_perco),
 ]  # сюда добавляю остальные парсеры для других сайтов
 
 
