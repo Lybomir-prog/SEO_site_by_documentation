@@ -21,6 +21,10 @@ class Document(Base):
     parser_source = Column(String(100), nullable=True)  # источник парсинга
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
+    # SEO
+    slug = Column(String(255), nullable=True, unique=True)
+    updated_at = Column(DateTime, server_default=func.now(), nullable=True)
+
     model = relationship("Models", back_populates="documents")
     downloads = relationship("DocumentDownloads", back_populates="document")
     versions = relationship(

@@ -10,12 +10,16 @@ from parsers.sites.kodos import run as run_kodos
 from parsers.sites.gate_ip import run as run_gate
 from parsers.sites.sigur import run as run_sigur
 from parsers.sites.perco import run as run_perco
+from parsers.sites.iron_logic import run as run_iron_logic
+from parsers.sites.tinko import run as run_tinko
 
 PARSERS: list[tuple[str, Callable[[], Awaitable[list[dict]]]]] = [
     ("kodos", run_kodos),
     ("sigur", run_sigur),
-    ("gate", run_gate),
     ("perco", run_perco),
+    ("gate", run_gate),
+    ("iron_logic", run_iron_logic),
+    ("tinko", run_tinko),
 ]  # сюда добавляю остальные парсеры для других сайтов
 
 

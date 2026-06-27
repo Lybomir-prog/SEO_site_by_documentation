@@ -4,6 +4,7 @@ import httpx
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from pathlib import Path
+from services.document_service import detect_doc_type
 
 # делается на подобии кодоса
 DOCS_URL = "https://sigur.com/docs/"
@@ -33,7 +34,7 @@ def extract_filename_from_url(url: str) -> str:
     return url.split("?", 1)[0].rsplit("/", 1)[-1]
 
 
-def is_pdf_url(url: str) -> str:
+def is_pdf_url(url: str) -> bool:
     return extract_filename_from_url(url).lower().endswith(".pdf")
 
 
@@ -117,6 +118,7 @@ def parse_docs(soup: BeautifulSoup, base_url: str) -> list[dict]:
                     "brand_logo_url": "",
                     "category_name": section_name,
                     "category_icon": "",
+                    "subcategory": "",
                     "model_name": filename.rsplit(".", 1)[
                         0
                     ],  # имя самого оборудования до точки в ссылке на скачивание
@@ -127,7 +129,7 @@ def parse_docs(soup: BeautifulSoup, base_url: str) -> list[dict]:
                     "source_url": full_url,
                     "file_url": full_url,
                     "file_hash": "",
-                    "doc_type": "pdf",
+                    "doc_type": detect_doc_type(full_url, title),
                     "parser_source": "sigur",
                     "filename": filename,
                 }

@@ -20,5 +20,9 @@ class News(Base):
     published_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
+    # SEO
+    slug = Column(String(255), nullable=True, unique=True)
+    updated_at = Column(DateTime, onupdate=func.now(), nullable=True)
+
     source = relationship("NewsSource", back_populates="news")
     tag_links = relationship("NewsToTags", back_populates="news")

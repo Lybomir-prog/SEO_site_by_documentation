@@ -270,8 +270,9 @@ def parse_docs_from_html(html: str, source_section: str = "") -> list[dict]:
                     "brand": "PERCo",
                     "brand_website_url": "https://www.perco.ru/",
                     "brand_logo_url": "",
-                    "category_name": current_category,
+                    "category_name": "",
                     "category_icon": "",
+                    "subcategory": current_category,
                     "model_name": model_name,
                     "model_description": "",
                     "model_spec": "{}",
@@ -309,7 +310,7 @@ def dedupe_docs(docs: list[dict], mode: str = "by_model") -> list[dict]:
             key = doc["file_url"]
         else:
             key = (
-                doc["category_name"],
+                doc.get("subcategory", ""),
                 doc["model_name"],
                 doc["file_url"],
             )

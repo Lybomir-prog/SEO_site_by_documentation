@@ -9,3 +9,6 @@ pip install bcrypt
 pip install httpx
 pip install feedparser requests beautifulsoup4 lxml
 pip install cryptography
+pip install transliterate 
+pip install playwright
+python -m playwright install chromium

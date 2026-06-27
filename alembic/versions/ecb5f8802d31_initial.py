@@ -1,8 +1,8 @@
-"""initial tables
+"""initial
 
-Revision ID: 21e2de69ed01
+Revision ID: ecb5f8802d31
 Revises: 
-Create Date: 2026-06-16 16:31:08.775372
+Create Date: 2026-06-27 20:27:31.112173
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '21e2de69ed01'
+revision: str = 'ecb5f8802d31'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -25,16 +25,25 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name_brand', sa.String(length=200), nullable=False),
     sa.Column('slug', sa.String(length=100), nullable=False),
-    sa.Column('logo_url', sa.String(length=255), nullable=False),
+    sa.Column('logo_url', sa.String(length=255), nullable=True),
     sa.Column('website_url', sa.String(length=255), nullable=False),
+    sa.Column('docs_url', sa.String(length=255), nullable=True),
+    sa.Column('is_active', sa.Boolean(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('equipment_category',
     sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('parent_id', sa.Integer(), nullable=True),
     sa.Column('name_category', sa.String(length=255), nullable=False),
     sa.Column('slug', sa.String(length=255), nullable=False),
-    sa.Column('icon', sa.String(length=255), nullable=False),
-    sa.PrimaryKeyConstraint('id')
+    sa.Column('icon', sa.String(length=255), nullable=True),
+    sa.Column('meta_description', sa.String(length=500), nullable=True),
+    sa.Column('seo_text', sa.Text(), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+    sa.Column('is_active', sa.Boolean(), nullable=True),
+    sa.ForeignKeyConstraint(['parent_id'], ['equipment_category.id'], ),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('slug')
     )
     op.create_table('news_source',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -43,7 +52,7 @@ def upgrade() -> None:
     sa.Column('parser_type', sa.Enum('rss', 'html', name='parser_type_enum'), nullable=False),
     sa.Column('selector', sa.String(length=500), nullable=False),
     sa.Column('is_active', sa.Boolean(), nullable=True),
-    sa.Column('last_parsed', sa.DateTime(), nullable=False),
+    sa.Column('last_parsed', sa.DateTime(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('news_tags',
@@ -57,10 +66,21 @@ def upgrade() -> None:
     sa.Column('path', sa.String(length=255), nullable=False),
     sa.Column('fingerprint', sa.String(length=500), nullable=False),
     sa.Column('user_agent', sa.String(length=255), nullable=False),
-    sa.Column('country', sa.String(length=100), nullable=False),
-    sa.Column('city', sa.String(length=100), nullable=False),
+    sa.Column('country', sa.String(length=100), nullable=True),
+    sa.Column('city', sa.String(length=100), nullable=True),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
     sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('site_pages',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('slug', sa.String(length=100), nullable=False),
+    sa.Column('title', sa.String(length=255), nullable=False),
+    sa.Column('meta_description', sa.String(length=500), nullable=True),
+    sa.Column('content', sa.Text(), nullable=False),
+    sa.Column('is_active', sa.Boolean(), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('slug')
     )
     op.create_table('users',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -68,6 +88,7 @@ def upgrade() -> None:
     sa.Column('login', sa.String(length=100), nullable=False),
     sa.Column('email', sa.String(length=100), nullable=False),
     sa.Column('password_hash', sa.String(length=255), nullable=False),
+    sa.Column('role', sa.String(length=20), nullable=False),
     sa.Column('last_login_at', sa.DateTime(), nullable=False),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
     sa.PrimaryKeyConstraint('id'),
@@ -79,12 +100,16 @@ def upgrade() -> None:
     sa.Column('category_id', sa.Integer(), nullable=True),
     sa.Column('brand_id', sa.Integer(), nullable=True),
     sa.Column('description', sa.Text(), nullable=False),
-    sa.Column('spec', sa.Text(), nullable=False),
+    sa.Column('spec', sa.Text(), nullable=True),
     sa.Column('name_equipment', sa.String(length=255), nullable=False),
     sa.Column('slug', sa.String(length=100), nullable=False),
-    sa.Column('image_url', sa.String(length=255), nullable=False),
+    sa.Column('image_url', sa.String(length=255), nullable=True),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
     sa.Column('is_active', sa.Boolean(), nullable=True),
+    sa.Column('meta_title', sa.String(length=255), nullable=True),
+    sa.Column('meta_description', sa.String(length=500), nullable=True),
+    sa.Column('faq_json', sa.Text(), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['brand_id'], ['brands.id'], ),
     sa.ForeignKeyConstraint(['category_id'], ['equipment_category.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -101,21 +126,26 @@ def upgrade() -> None:
     sa.Column('is_published', sa.Boolean(), nullable=True),
     sa.Column('published_at', sa.DateTime(), nullable=False),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('slug', sa.String(length=255), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['source_id'], ['news_source.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('slug')
     )
     op.create_table('document',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('model_id', sa.Integer(), nullable=True),
-    sa.Column('version', sa.Integer(), nullable=False),
-    sa.Column('version_number', sa.Integer(), nullable=True),
-    sa.Column('file_url', sa.String(length=255), nullable=False),
-    sa.Column('file_hash', sa.String(length=255), nullable=False),
-    sa.Column('is_latest', sa.Boolean(), nullable=True),
-    sa.Column('source_url', sa.String(length=255), nullable=False),
+    sa.Column('model_id', sa.Integer(), nullable=False),
+    sa.Column('title', sa.String(length=255), nullable=False),
+    sa.Column('doc_type', sa.String(length=50), nullable=True),
+    sa.Column('source_url', sa.String(length=500), nullable=True),
+    sa.Column('parser_source', sa.String(length=100), nullable=True),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('slug', sa.String(length=255), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
     sa.ForeignKeyConstraint(['model_id'], ['models.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('slug'),
+    sa.UniqueConstraint('source_url')
     )
     op.create_table('news_to_base',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -129,7 +159,7 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('model_id', sa.Integer(), nullable=True),
     sa.Column('user_id', sa.Integer(), nullable=True),
-    sa.Column('rating', sa.Integer(), nullable=True),
+    sa.Column('rating', sa.Integer(), nullable=False),
     sa.Column('body', sa.Text(), nullable=True),
     sa.Column('is_approved', sa.Boolean(), nullable=True),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
@@ -142,6 +172,17 @@ def upgrade() -> None:
     sa.Column('document_id', sa.Integer(), nullable=False),
     sa.Column('fingerprint', sa.String(length=500), nullable=False),
     sa.Column('ip_hash', sa.String(length=255), nullable=True),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['document_id'], ['document.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('document_versions',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('document_id', sa.Integer(), nullable=False),
+    sa.Column('version_number', sa.Integer(), nullable=False),
+    sa.Column('file_url', sa.String(length=255), nullable=False),
+    sa.Column('file_hash', sa.String(length=255), nullable=False),
+    sa.Column('is_latest', sa.Boolean(), nullable=False),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['document_id'], ['document.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -162,6 +203,7 @@ def downgrade() -> None:
     """Downgrade schema."""
     # ### commands auto generated by Alembic - please adjust! ###
     op.drop_table('reviews_likes')
+    op.drop_table('document_versions')
     op.drop_table('document_downloads')
     op.drop_table('reviews')
     op.drop_table('news_to_base')
@@ -169,6 +211,7 @@ def downgrade() -> None:
     op.drop_table('news')
     op.drop_table('models')
     op.drop_table('users')
+    op.drop_table('site_pages')
     op.drop_table('page_view')
     op.drop_table('news_tags')
     op.drop_table('news_source')

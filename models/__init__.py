@@ -12,3 +12,4 @@ from models.page_view import PageView
 from models.reviews_likes import ReviewsLikes
 from models.reviews import Reviews
 from models.users import Users
+from models.site_page import SitePage

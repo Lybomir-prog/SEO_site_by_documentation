@@ -4,6 +4,7 @@ import httpx
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from pathlib import Path
+from services.document_service import detect_doc_type
 
 DOCS_URL = "https://kodos.ru/podderzhka/dokumentacziya/"
 HEADERS = {
@@ -57,7 +58,8 @@ def parse_docs(soup: BeautifulSoup, base_url: str) -> list[dict]:
                 "brand_logo_url": "",
                 "category_name": current_category,
                 "category_icon": "",
-                "model_name": current_subcategory,
+                "subcategory": current_subcategory,
+                "model_name": title,
                 "model_description": "",
                 "model_spec": "{}",
                 "model_image_url": "",
@@ -65,7 +67,7 @@ def parse_docs(soup: BeautifulSoup, base_url: str) -> list[dict]:
                 "source_url": full_url,
                 "file_url": full_url,
                 "file_hash": "",
-                "doc_type": "pdf",
+                "doc_type": detect_doc_type(full_url, title),
                 "parser_source": "kodos",
             }
         )
@@ -156,7 +158,7 @@ async def run(download: bool = False) -> list[dict]:
         docs = parse_docs(soup, DOCS_URL)
         print("Найдено документов", len(docs))
 
-        docs = await enrich_docs_with_files(client, docs, download=True)
+        docs = await enrich_docs_with_files(client, docs, download=download)
 
         return docs
 

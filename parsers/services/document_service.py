@@ -1,17 +1,65 @@
+import re
+import hashlib
+
 from typing import Any
 
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import func
 
 from models.brands import Brands
 from models.document import Document
 from models.document_versions import DocumentVersion
 from models.equipment_category import EquipmentCategory
 from models.models import Models
+from transliterate import translit
 
 
 def make_slug(value: str) -> str:
-    return value.strip().lower().replace(" ", "-")
+    try:
+        value = translit(value, "ru", reversed=True)  # превращаем кириллицу в латиницу
+    except Exception:
+        pass
+
+    slug = value.strip().lower().replace(" ", "-")
+    slug = re.sub(r"[^a-z0-9()_.-]+", "-", slug)
+    slug = re.sub(r"-{2,}", "-", slug).strip("-")
+
+    if len(slug) > 80:
+        digest = hashlib.md5(slug.encode("utf-8")).hexdigest()[:8]
+        slug = f"{slug[:71]}-{digest}"
+
+    return slug
+
+
+def detect_doc_type(url: str, link_text: str = "") -> str:
+    text_lower = link_text.lower()
+    url_lower = url.lower()
+
+    if any(x in text_lower for x in ["datasheet", "спецификация", "spec"]):
+        return "datasheet"
+    if any(
+        x in text_lower for x in ["manual", "инструкция", "руководство по эксплуатации"]
+    ):
+        return "manual"
+    if any(
+        x in text_lower
+        for x in ["installation", "установка", "монтаж", "руководство по монтажу"]
+    ):
+        return "installation"
+    if any(x in text_lower for x in ["паспорт"]):
+        return "passport"
+    if any(x in text_lower for x in ["реестр", "сертификат", "certificate"]):
+        return "certificate"
+
+    if "/download/techspec/" in url_lower or "/spec/" in url_lower:
+        return "techspec"
+    if "/download/documentation/" in url_lower or "/manual/" in url_lower:
+        return "documentation"
+    if "/download/certificates/" in url_lower:
+        return "certificate"
+
+    return "pdf"
 
 
 async def get_or_create_brand(
@@ -41,13 +89,15 @@ async def get_or_create_category(
     db: AsyncSession,
     category_name: str,
     icon: str = "",
+    parent_id: int | None = None,
 ) -> EquipmentCategory | None:
     if not category_name:
         return None
 
     result = await db.execute(
         select(EquipmentCategory).where(
-            EquipmentCategory.name_category == category_name
+            EquipmentCategory.name_category == category_name,
+            EquipmentCategory.parent_id == parent_id,
         )
     )
     category = result.scalar_one_or_none()
@@ -59,6 +109,7 @@ async def get_or_create_category(
         name_category=category_name,
         slug=make_slug(category_name),
         icon=icon,
+        parent_id=parent_id,
     )
     db.add(category)
     await db.flush()
@@ -87,6 +138,7 @@ async def get_or_create_model(
     model = result.scalar_one_or_none()
 
     if model:
+        model.updated_at = func.now()
         return model
 
     model = Models(
@@ -121,12 +173,18 @@ async def create_document(
     doc_type: str | None = None,
     parser_source: str | None = None,
 ) -> Document:
+    # генерируем slug для запросов
+    url_tail = source_url.rsplit("/").rsplit("/", 1)[-1].rsplit(".", 1)[0]
+    slug_base = (
+        f"{make_slug(title)}-{make_slug(url_tail)}" if url_tail else make_slug(title)
+    )
     document = Document(
         model_id=model_id,
         source_url=source_url,
         title=title,
         doc_type=doc_type,
         parser_source=parser_source,
+        slug=slug_base,
     )
     db.add(document)
     await db.flush()
@@ -201,11 +259,22 @@ async def upsert_document_with_version(
         icon=item.get("category_icon", ""),
     )
 
+    subcategory = (
+        await get_or_create_category(
+            db,
+            category_name=item.get("subcategory", ""),
+            parent_id=category.id if category else None,
+        )
+        if item.get("subcategory")
+        else None
+    )
+
+    effective_category = subcategory or category
     model = await get_or_create_model(
         db,
         model_name=item.get("model_name", ""),
         brand_id=brand.id,
-        category_id=category.id if category else None,
+        category_id=effective_category.id if effective_category else None,
         description=item.get("model_description", ""),
         spec=item.get("model_spec", "{}"),
         image_url=item.get("model_image_url", ""),
@@ -244,7 +313,7 @@ async def upsert_document_with_version(
         same_hash = latest_version.file_hash == item["file_hash"]
         same_file_url = latest_version.file_url == item["file_url"]
 
-        if same_hash and same_file_url:
+        if same_hash and same_file_url and item["file_hash"] is not None:
             return {
                 "status": "skipped",
                 "document_id": document.id,
@@ -301,10 +370,10 @@ async def save_documents(
 
     for item in items:
         try:
-            result = await upsert_document_with_version(db, item)
+            async with db.begin_nested():
+                result = await upsert_document_with_version(db, item)
             stats[result["status"]] += 1
         except Exception as e:
-            await db.rollback()
             stats["errors"] += 1
             print("save errors: ", item["source_url"], repr(e))
 
