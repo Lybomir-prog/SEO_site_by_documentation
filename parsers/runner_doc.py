@@ -5,7 +5,7 @@ import asyncio
 from collections.abc import Callable, Awaitable
 from database import AsyncSessionLocal, engine
 import models
-from parsers.services.document_service import save_documents
+from services.document_service import save_documents
 from parsers.sites.kodos import run as run_kodos
 from parsers.sites.gate_ip import run as run_gate
 from parsers.sites.sigur import run as run_sigur

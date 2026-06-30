@@ -12,3 +12,8 @@ pip install cryptography
 pip install transliterate 
 pip install playwright
 python -m playwright install chromium
+pip install PyMuPDF
+pip install chromadb
+pip install openAI
+pip install sentence_transformers 
+pip install apscheduler==3.10.4

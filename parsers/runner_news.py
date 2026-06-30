@@ -5,7 +5,7 @@ from parsers.sites.secnews import fetch_news as fetch_secnews
 from services.news_service import save_news
 
 
-async def run_all():
+async def run_parser():
     print("[NEWS] Старт парсинга...")
 
     async with AsyncSessionLocal() as db:

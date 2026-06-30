@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from models.news import News
 from parsers.base_news import NewsItem
 from parsers.sites.securitylab import make_image_filename
+from services.deepseek_service import rewrite_news
 
 IMAGE_BASE_DIR = Path("static/news/images")
 
@@ -66,6 +67,13 @@ async def save_news(db: AsyncSession, items: list[NewsItem]) -> dict:
                 img_downloaded_flag = True
                 img_downloaded += 1
 
+        # переписанная новость
+        rewritten = await rewrite_news(
+            title=item.title,
+            content=item.content_original or item.summary or "",
+            news_type="rewrite",
+        )
+
         news = News(
             parser_source=item.parser_source,
             content_type=item.content_type,
@@ -76,6 +84,7 @@ async def save_news(db: AsyncSession, items: list[NewsItem]) -> dict:
             content_hash=item.content_hash,
             summary=item.summary,
             content_original=item.content_original,
+            content_rewritten=rewritten,
             image_url=item.image_url,
             image_local_path=local_path,
             image_downloaded=img_downloaded_flag,

@@ -12,6 +12,7 @@ from models.document import Document
 from models.document_versions import DocumentVersion
 from models.equipment_category import EquipmentCategory
 from models.models import Models
+from services.deepseek_service import process_document_ai
 from transliterate import translit
 
 
@@ -373,6 +374,14 @@ async def save_documents(
             async with db.begin_nested():
                 result = await upsert_document_with_version(db, item)
             stats[result["status"]] += 1
+            # внедряем описание сделанное нейросетью
+            if result["status"] in ("created", "updated"):
+                await process_document_ai(
+                    db=db,
+                    document_id=result["document_id"],
+                    file_url=item["file_url"],
+                    status=result["status"],
+                )
         except Exception as e:
             stats["errors"] += 1
             print("save errors: ", item["source_url"], repr(e))
