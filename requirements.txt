@@ -6,7 +6,7 @@ pip install pydantic_settings
 pip install aiomysql
 pip install pydantic[email]
 pip install bcrypt
-pip install httpx
+pip install "httpx==0.27.2"
 pip install feedparser requests beautifulsoup4 lxml
 pip install cryptography
 pip install transliterate 
@@ -14,6 +14,6 @@ pip install playwright
 python -m playwright install chromium
 pip install PyMuPDF
 pip install chromadb
-pip install openAI
+pip install "openai==1.54.0"
 pip install sentence_transformers 
 pip install apscheduler==3.10.4

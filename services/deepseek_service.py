@@ -2,8 +2,9 @@ import httpx
 import fitz
 import chromadb
 import os
+import asyncio
 from dotenv import load_dotenv
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, RateLimitError
 from pathlib import Path
 from sentence_transformers import SentenceTransformer
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,7 +22,7 @@ llm = AsyncOpenAI(
 )
 # и модель
 
-model = "deepseek-r1-distill-llama-70b"  # говорим где будет работать модель
+model = "llama-3.1-8b-instant"  # говорим где будет работать модель
 
 embender = SentenceTransformer(
     "intfloat/multilingual-e5-base"
@@ -35,10 +36,10 @@ collection = chroma.get_or_create_collection("equimpent_docs")  # делаем �
 # ---------PDF-> чанки-----
 async def download_pdf(file_url: str, save_path: Path) -> bool:
     """install pdf if it's don't save"""
-    if save_path.exist():
+    if save_path.exists():
         return True
     try:
-        async with httpx.Asynclient(timeout=30, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
             resp = await client.get(file_url)
             if resp.status_code == 200:
                 save_path.parent.mkdir(parents=True, exist_ok=True)
@@ -74,7 +75,7 @@ def index_chunks(equipment_key: str, chunks: list[str]):
     if not chunks:
         return
 
-    embeddings = embender.endcode("chunks").tolist()
+    embeddings = embender.encode(chunks).tolist()
     collection.add(
         documents=chunks,
         embeddings=embeddings,
@@ -96,15 +97,26 @@ def search_chunks(equipment_key: str, query: str, top_k: int = 6) -> str:
 
 # ----Генерация текстов-----------
 async def generate(system: str, user: str, temperature: float = 0.5) -> str:
-    response = await llm.chat.completions.create(
-        model="deepseek-chat",
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-    )
+    for attempt in range(3):
+        try:
+            response = await llm.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                temperature=temperature,
+            )
 
-    return response.choices[0].message.content.strip()
+            return response.choices[0].message.content.strip()
+        except RateLimitError:
+            wait_time = 15 * (attempt + 1)
+            print(f"[RATE LIMIT] sleep {wait_time}")
+            await asyncio.sleep(wait_time)
+        except Exception as e:
+            print(f"LLM ERROR {e}")
+            raise
+    return ""
 
 
 async def generate_model_descriptions(equipment_key: str, model_name: str) -> str:
@@ -186,12 +198,15 @@ async def process_document_ai(
     index_chunks(equipment_key, chunks)
 
     # генерируем описание
-    descriptions = await generate_model_descriptions(
-        equipment_key, model.name_equipment
-    )
-    if descriptions:
-        model.description = descriptions
-        await db.commit()
-        print(f"[AI] Описание обновленно:{model.name_equipment}")
+    try:
+        descriptions = await generate_model_descriptions(
+            equipment_key, model.name_equipment
+        )
+        if descriptions:
+            model.description = descriptions
+            await db.flush()
+            print(f"[AI] Описание обновленно:{model.name_equipment}")
+    except Exception as e:
+        print(f"[AI DESC ERROR] {model.name_equipment}: {e}")
 
     return True

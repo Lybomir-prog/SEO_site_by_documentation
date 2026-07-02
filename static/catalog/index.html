@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="page_head">
+    <h1>Каталог оборудования</h1>
+    <p>Выберите категорию, чтобы перейти к моделям, документам и описаниям.</p>
+</section>
+{% if categories %}
+    <section class="catalog-grid">
+        {% for category in categories %}
+        <article class="catalog-card">
+            <a href="/catalog/{{catalog.slug}}/" class="catalog-card__link">
+                <h2>{{category.name_category}}</h2>
+                {% if category.meta_description %}
+                    <p>{{category.meta_description}}</p>
+                <%else%>
+                    <p>Перейти к моделям и документации категориию.</p>
+                {%endif %}
+            </a>
+        </article>
+        {% endfor %}
+    </section>
+{% else %}
+    <section class="empty-state">
+        <h2>Категории пока не найдены</h2>
+    </section>
+{% endif %}
+{% endblock %}

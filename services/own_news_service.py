@@ -122,7 +122,7 @@ async def generate_topics_from_db(
         .order_by(func.rand())
         .limit(10)
     )
-    categories = categories_result.scalar().all()
+    categories = categories_result.scalars().all()
 
     # random models
     models_result = await db.execute(select(Models).order_by(func.rand()).limit(10))
@@ -218,7 +218,7 @@ async def generate_and_save_news(
                     url_hash=topic["url_hash"],
                     content_hash="",
                     content_original=topic["content"],
-                    content_rewritten=text,
+                    content_deepseek=text,
                     brand_id=topic.get("brand_id"),
                     is_published=False,
                 )
@@ -227,7 +227,7 @@ async def generate_and_save_news(
 
         except Exception as e:
             errors += 1
-        print(f"[OWN NEWS ERROR] {topic['title']}: {e}")
+            print(f"[OWN NEWS ERROR] {topic['title']}: {e}")
 
     await db.commit()
     return {"saved": saved, "skipped": skipped, "errors": errors}

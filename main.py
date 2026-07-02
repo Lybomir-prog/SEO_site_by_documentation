@@ -1,14 +1,19 @@
 from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
+
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from database import get_db
+from routes.auth import routes as auth_router
+from routes.catalog import router as catalog_router
+
+
 from services.news_service import save_news
 from services.own_news_service import generate_topics_from_db, generate_and_save_news
 from parsers.runner_doc import run_parser as run_doc
 from parsers.runner_news import run_parser as run_news
-from routes.auth import routes as auth_router
 
 scheduler = AsyncIOScheduler(timezone="Europe/Moscow")
 
@@ -24,9 +29,7 @@ async def job_parse_docs():
 
 async def job_parse_and_rewrite():
     """Рерайт новостей с источников"""
-    async for db in get_db():
-        items = await run_news()
-        await save_news(db, items[:2])
+    await run_news()
 
 
 async def job_generate_own_news():
@@ -93,3 +96,7 @@ async def run_docs_now():
 @app.get("/")
 async def root():
     return {"message": "api run"}
+
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+app.include_router(catalog_router)

@@ -11,7 +11,7 @@ from parsers.base_news import NewsItem
 from parsers.sites.securitylab import make_image_filename
 from services.deepseek_service import rewrite_news
 
-IMAGE_BASE_DIR = Path("static/news/images")
+IMAGE_BASE_DIR = Path("storage/news/images")
 
 
 async def _download_image(image_url: str) -> Optional[str]:
@@ -84,7 +84,7 @@ async def save_news(db: AsyncSession, items: list[NewsItem]) -> dict:
             content_hash=item.content_hash,
             summary=item.summary,
             content_original=item.content_original,
-            content_rewritten=rewritten,
+            content_deepseek=rewritten,
             image_url=item.image_url,
             image_local_path=local_path,
             image_downloaded=img_downloaded_flag,

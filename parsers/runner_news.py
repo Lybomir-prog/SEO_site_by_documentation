@@ -31,8 +31,12 @@ async def run_parser():
             f"images={stats2['images']}"
         )
 
+
+async def run_parser_standalone():
+    """для запуска отдельным скриптом — закрывает движок после работы"""
+    await run_parser()
     await engine.dispose()
 
 
 if __name__ == "__main__":
-    asyncio.run(run_all())
+    asyncio.run(run_parser_standalone())

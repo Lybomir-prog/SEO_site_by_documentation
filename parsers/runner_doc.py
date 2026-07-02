@@ -14,8 +14,8 @@ from parsers.sites.iron_logic import run as run_iron_logic
 from parsers.sites.tinko import run as run_tinko
 
 PARSERS: list[tuple[str, Callable[[], Awaitable[list[dict]]]]] = [
-    ("kodos", run_kodos),
     ("sigur", run_sigur),
+    ("kodos", run_kodos),
     ("perco", run_perco),
     ("gate", run_gate),
     ("iron_logic", run_iron_logic),

@@ -5,6 +5,7 @@ from typing import Any
 
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql import func
 
 from models.brands import Brands
@@ -106,14 +107,28 @@ async def get_or_create_category(
     if category:
         return category
 
+    base_slug = make_slug(category_name)
+    slug = f"{base_slug}-{parent_id}" if parent_id else base_slug
+
     category = EquipmentCategory(
         name_category=category_name,
-        slug=make_slug(category_name),
+        slug=slug,
         icon=icon,
         parent_id=parent_id,
     )
     db.add(category)
-    await db.flush()
+
+    try:
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()  # снизу повторяем код, потому что ролбек аннулирует категорию, а нам надо заново ее найти
+        result = await db.execute(
+            select(EquipmentCategory).where(
+                EquipmentCategory.name_category == category_name,
+                EquipmentCategory.parent_id == parent_id,
+            )
+        )
+        return result.scalar_one_or_none()
     return category
 
 
@@ -175,7 +190,7 @@ async def create_document(
     parser_source: str | None = None,
 ) -> Document:
     # генерируем slug для запросов
-    url_tail = source_url.rsplit("/").rsplit("/", 1)[-1].rsplit(".", 1)[0]
+    url_tail = source_url.rsplit("/", 1)[-1].rsplit(".", 1)[0]
     slug_base = (
         f"{make_slug(title)}-{make_slug(url_tail)}" if url_tail else make_slug(title)
     )
