@@ -8,6 +8,7 @@ __pycache__/
 *.py[cod]
 
 storage/
+.chroma_db/
 
 .idea/
 .vscode/
